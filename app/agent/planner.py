@@ -129,7 +129,9 @@ def plan_task(
         
     except Exception as e:
         # Fail-safe local heuristics
-        # Check YouTube URL
+        query_lower = query.lower().strip()
+        
+        # 1. Check YouTube URL
         from app.agent.tasks import extract_youtube_video_id
         if extract_youtube_video_id(query):
             return {
@@ -141,8 +143,8 @@ def plan_task(
                 "cost_estimate": 0.0001
             }
             
-        # Vague input fallback
-        if not query.strip() and extracted_text:
+        # 2. Vague input fallback
+        if not query_lower and extracted_text:
             return {
                 "status": "ambiguous",
                 "follow_up_question": "What would you like me to do with this file? (e.g. summarize it, analyze sentiment, or extract text?)",
@@ -152,12 +154,69 @@ def plan_task(
                 "cost_estimate": 0.0
             }
             
+        # 3. Local keywords matching
+        summary_keywords = ["summarize", "summary", "summazrize", "sumerize", "summari", "brief", "outline", "condense", "gist"]
+        sentiment_keywords = ["sentiment", "opinion", "tone", "emotion", "feeling", "positive", "negative", "neutral"]
+        code_keywords = ["code", "bug", "complexity", "explain code", "debug", "python", "javascript", "c++", "java", "function", "class"]
+        ocr_keywords = ["ocr", "extract text", "read text", "transcribe document"]
+        audio_keywords = ["audio", "transcribe audio", "listen", "voice", "speech"]
+        
+        matched_task = None
+        plan_steps = []
+        reasoning_str = ""
+        
+        if any(kw in query_lower for kw in summary_keywords):
+            matched_task = "summarize"
+            plan_steps = [
+                "Locate source text from file or query",
+                "Format output into 1-line, 3-bullet points, and 5-sentence summaries"
+            ]
+            reasoning_str = f"Matched summary intent by keyword in query: '{query}'"
+        elif any(kw in query_lower for kw in sentiment_keywords):
+            matched_task = "sentiment"
+            plan_steps = [
+                "Locate source text for analysis",
+                "Determine sentiment label (Positive/Negative/Neutral) and confidence"
+            ]
+            reasoning_str = f"Matched sentiment intent by keyword in query: '{query}'"
+        elif any(kw in query_lower for kw in code_keywords):
+            matched_task = "code_explain"
+            plan_steps = [
+                "Extract code snippet from query or document",
+                "Analyze code logic, spot bugs, and compute time/space complexity"
+            ]
+            reasoning_str = f"Matched code explanation intent by keyword in query: '{query}'"
+        elif any(kw in query_lower for kw in ocr_keywords):
+            matched_task = "image_pdf_ocr"
+            plan_steps = [
+                "Run OCR extraction on image or scanned document page(s)",
+                "Format and output plain text"
+            ]
+            reasoning_str = f"Matched OCR/text extraction intent by keyword in query: '{query}'"
+        elif any(kw in query_lower for kw in audio_keywords) or (file_type and file_type.lower().strip(".") in ["mp3", "wav", "m4a"]):
+            matched_task = "audio_transcribe_summary"
+            plan_steps = [
+                "Transcribe input audio file content",
+                "Generate summary formatted output"
+            ]
+            reasoning_str = "Matched audio intent by keyword or file format."
+            
+        if matched_task:
+            return {
+                "status": "ready",
+                "follow_up_question": None,
+                "task_type": matched_task,
+                "plan": [{"step": idx + 1, "description": step} for idx, step in enumerate(plan_steps)],
+                "reasoning": f"Local intent classification: {reasoning_str} (fallback due to planning API error: {str(e)})",
+                "cost_estimate": 0.0001
+            }
+            
         # Standard conversation fallback
         return {
             "status": "ready",
             "follow_up_question": None,
             "task_type": "conversation",
             "plan": [{"step": 1, "description": "Generate friendly conversational response"}],
-            "reasoning": "Defaulting to conversational response due to planning exception: " + str(e),
+            "reasoning": f"Defaulting to conversational response due to planning exception: {str(e)}",
             "cost_estimate": 0.0001
         }
