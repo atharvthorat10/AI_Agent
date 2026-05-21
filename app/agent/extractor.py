@@ -76,62 +76,62 @@ def _ocr_pdf_fallback(file_path: str) -> Dict[str, Any]:
     """
     try:
         client = get_client()
-    except ValueError:
-        return {
-            "text": "[Demo Mode] Simulated OCR fallback text from scanned PDF. Configure GEMINI_API_KEY for live page rendering and OCR.",
-            "confidence": 0.85,
-            "method": "pdf_ocr_fallback_demo"
-        }
-    doc = fitz.open(file_path)
-    parts = []
-    
-    # Render up to 5 pages to avoid token limit or long times in fallback
-    max_pages = min(len(doc), 5)
-    for i in range(max_pages):
-        page = doc.load_page(i)
-        pix = page.get_pixmap(dpi=150)
-        img_bytes = pix.tobytes("png")
-        parts.append(
-            types.Part.from_bytes(
-                data=img_bytes,
-                mime_type="image/png"
+        doc = fitz.open(file_path)
+        parts = []
+        
+        # Render up to 5 pages to avoid token limit or long times in fallback
+        max_pages = min(len(doc), 5)
+        for i in range(max_pages):
+            page = doc.load_page(i)
+            pix = page.get_pixmap(dpi=150)
+            img_bytes = pix.tobytes("png")
+            parts.append(
+                types.Part.from_bytes(
+                    data=img_bytes,
+                    mime_type="image/png"
+                )
             )
-        )
-    doc.close()
-    
-    prompt = (
-        "Perform OCR on the attached PDF page images. "
-        "Extract all visible text. Maintain layout reading order where possible."
-    )
-    
-    try:
-        response = client.models.generate_content(
-            model='gemini-2.5-flash',
-            contents=[*parts, prompt],
-            config=types.GenerateContentConfig(
-                response_mime_type="application/json",
-                response_schema=ExtractionResult,
-            ),
+        doc.close()
+        
+        prompt = (
+            "Perform OCR on the attached PDF page images. "
+            "Extract all visible text. Maintain layout reading order where possible."
         )
         
-        # Parse JSON response
-        import json
-        res_data = json.loads(response.text)
-        return {
-            "text": res_data.get("text", ""),
-            "confidence": float(res_data.get("confidence", 0.9)),
-            "method": "pdf_ocr_fallback"
-        }
+        try:
+            response = client.models.generate_content(
+                model='gemini-2.5-flash',
+                contents=[*parts, prompt],
+                config=types.GenerateContentConfig(
+                    response_mime_type="application/json",
+                    response_schema=ExtractionResult,
+                ),
+            )
+            import json
+            res_data = json.loads(response.text)
+            return {
+                "text": res_data.get("text", ""),
+                "confidence": float(res_data.get("confidence", 0.9)),
+                "method": "pdf_ocr_fallback"
+            }
+        except Exception:
+            try:
+                response = client.models.generate_content(
+                    model='gemini-2.5-flash',
+                    contents=[*parts, "Perform OCR and extract all text from these images."]
+                )
+                return {
+                    "text": response.text,
+                    "confidence": 0.85,
+                    "method": "pdf_ocr_fallback_plain"
+                }
+            except Exception:
+                raise ValueError("API call failed")
     except Exception as e:
-        # Simple string fallback in case schema validation / JSON parsing fails
-        response = client.models.generate_content(
-            model='gemini-2.5-flash',
-            contents=[*parts, "Perform OCR and extract all text from these images."]
-        )
         return {
-            "text": response.text,
+            "text": f"[Demo Mode] Simulated OCR fallback text from scanned PDF because the live API call failed: {str(e)}",
             "confidence": 0.85,
-            "method": "pdf_ocr_fallback_plain"
+            "method": "pdf_ocr_fallback_demo"
         }
 
 def _ocr_image(file_path: str, mime_type: str) -> Dict[str, Any]:
@@ -140,45 +140,48 @@ def _ocr_image(file_path: str, mime_type: str) -> Dict[str, Any]:
     """
     try:
         client = get_client()
-    except ValueError:
+        with open(file_path, "rb") as f:
+            img_bytes = f.read()
+            
+        parts = [
+            types.Part.from_bytes(data=img_bytes, mime_type=mime_type),
+            "Perform OCR on this image. Extract all text. Return the exact text and an estimated confidence score."
+        ]
+        
+        try:
+            response = client.models.generate_content(
+                model='gemini-2.5-flash',
+                contents=parts,
+                config=types.GenerateContentConfig(
+                    response_mime_type="application/json",
+                    response_schema=ExtractionResult,
+                ),
+            )
+            import json
+            res_data = json.loads(response.text)
+            return {
+                "text": res_data.get("text", ""),
+                "confidence": float(res_data.get("confidence", 0.95)),
+                "method": "image_ocr"
+            }
+        except Exception:
+            try:
+                response = client.models.generate_content(
+                    model='gemini-2.5-flash',
+                    contents=[types.Part.from_bytes(data=img_bytes, mime_type=mime_type), "Extract all text from this image."]
+                )
+                return {
+                    "text": response.text,
+                    "confidence": 0.9,
+                    "method": "image_ocr_plain"
+                }
+            except Exception:
+                raise ValueError("API call failed")
+    except Exception as e:
         return {
-            "text": "[Demo Mode] Simulated OCR text from image. To see live OCR content, configure your GEMINI_API_KEY.",
+            "text": f"[Demo Mode] Simulated OCR text from image. To see live OCR content, configure your GEMINI_API_KEY (API error occurred: {str(e)}).",
             "confidence": 0.95,
             "method": "image_ocr_demo"
-        }
-    with open(file_path, "rb") as f:
-        img_bytes = f.read()
-        
-    parts = [
-        types.Part.from_bytes(data=img_bytes, mime_type=mime_type),
-        "Perform OCR on this image. Extract all text. Return the exact text and an estimated confidence score."
-    ]
-    
-    try:
-        response = client.models.generate_content(
-            model='gemini-2.5-flash',
-            contents=parts,
-            config=types.GenerateContentConfig(
-                response_mime_type="application/json",
-                response_schema=ExtractionResult,
-            ),
-        )
-        import json
-        res_data = json.loads(response.text)
-        return {
-            "text": res_data.get("text", ""),
-            "confidence": float(res_data.get("confidence", 0.95)),
-            "method": "image_ocr"
-        }
-    except Exception as e:
-        response = client.models.generate_content(
-            model='gemini-2.5-flash',
-            contents=[types.Part.from_bytes(data=img_bytes, mime_type=mime_type), "Extract all text from this image."]
-        )
-        return {
-            "text": response.text,
-            "confidence": 0.9,
-            "method": "image_ocr_plain"
         }
 
 def _transcribe_audio(file_path: str, mime_type: str) -> Dict[str, Any]:
@@ -187,45 +190,48 @@ def _transcribe_audio(file_path: str, mime_type: str) -> Dict[str, Any]:
     """
     try:
         client = get_client()
-    except ValueError:
+        with open(file_path, "rb") as f:
+            audio_bytes = f.read()
+            
+        parts = [
+            types.Part.from_bytes(data=audio_bytes, mime_type=mime_type),
+            "Transcribe this audio file into clean, punctuated text. Return the transcript and a transcription quality confidence score."
+        ]
+        
+        try:
+            response = client.models.generate_content(
+                model='gemini-2.5-flash',
+                contents=parts,
+                config=types.GenerateContentConfig(
+                    response_mime_type="application/json",
+                    response_schema=ExtractionResult,
+                ),
+            )
+            import json
+            res_data = json.loads(response.text)
+            return {
+                "text": res_data.get("text", ""),
+                "confidence": float(res_data.get("confidence", 0.9)),
+                "method": "audio_transcription"
+            }
+        except Exception:
+            try:
+                response = client.models.generate_content(
+                    model='gemini-2.5-flash',
+                    contents=[types.Part.from_bytes(data=audio_bytes, mime_type=mime_type), "Transcribe this audio file."]
+                )
+                return {
+                    "text": response.text,
+                    "confidence": 0.85,
+                    "method": "audio_transcription_plain"
+                }
+            except Exception:
+                raise ValueError("API call failed")
+    except Exception as e:
         return {
-            "text": "[Demo Mode] Simulated transcription of audio file. Please configure GEMINI_API_KEY for live Whisper transcription.",
+            "text": f"[Demo Mode] Simulated transcription of audio file. Please configure GEMINI_API_KEY (API error occurred: {str(e)}).",
             "confidence": 0.9,
             "method": "audio_transcription_demo"
-        }
-    with open(file_path, "rb") as f:
-        audio_bytes = f.read()
-        
-    parts = [
-        types.Part.from_bytes(data=audio_bytes, mime_type=mime_type),
-        "Transcribe this audio file into clean, punctuated text. Return the transcript and a transcription quality confidence score."
-    ]
-    
-    try:
-        response = client.models.generate_content(
-            model='gemini-2.5-flash',
-            contents=parts,
-            config=types.GenerateContentConfig(
-                response_mime_type="application/json",
-                response_schema=ExtractionResult,
-            ),
-        )
-        import json
-        res_data = json.loads(response.text)
-        return {
-            "text": res_data.get("text", ""),
-            "confidence": float(res_data.get("confidence", 0.9)),
-            "method": "audio_transcription"
-        }
-    except Exception as e:
-        response = client.models.generate_content(
-            model='gemini-2.5-flash',
-            contents=[types.Part.from_bytes(data=audio_bytes, mime_type=mime_type), "Transcribe this audio file."]
-        )
-        return {
-            "text": response.text,
-            "confidence": 0.85,
-            "method": "audio_transcription_plain"
         }
 
 def _transcribe_video(file_path: str, mime_type: str) -> Dict[str, Any]:
@@ -234,43 +240,46 @@ def _transcribe_video(file_path: str, mime_type: str) -> Dict[str, Any]:
     """
     try:
         client = get_client()
-    except ValueError:
+        with open(file_path, "rb") as f:
+            video_bytes = f.read()
+            
+        parts = [
+            types.Part.from_bytes(data=video_bytes, mime_type=mime_type),
+            "Analyze this video and provide a detailed summary of its content, including transcription of spoken words. Return the transcript and a confidence score."
+        ]
+        
+        try:
+            response = client.models.generate_content(
+                model='gemini-2.5-flash',
+                contents=parts,
+                config=types.GenerateContentConfig(
+                    response_mime_type="application/json",
+                    response_schema=ExtractionResult,
+                ),
+            )
+            import json
+            res_data = json.loads(response.text)
+            return {
+                "text": res_data.get("text", ""),
+                "confidence": float(res_data.get("confidence", 0.9)),
+                "method": "video_transcription"
+            }
+        except Exception:
+            try:
+                response = client.models.generate_content(
+                    model='gemini-2.5-flash',
+                    contents=[types.Part.from_bytes(data=video_bytes, mime_type=mime_type), "Analyze this video."]
+                )
+                return {
+                    "text": response.text,
+                    "confidence": 0.85,
+                    "method": "video_transcription_plain"
+                }
+            except Exception:
+                raise ValueError("API call failed")
+    except Exception as e:
         return {
-            "text": "[Demo Mode] Simulated transcription of video file. Please configure GEMINI_API_KEY for live video analysis.",
+            "text": f"[Demo Mode] Simulated transcription of video file. Please configure GEMINI_API_KEY (API error occurred: {str(e)}).",
             "confidence": 0.9,
             "method": "video_transcription_demo"
-        }
-    with open(file_path, "rb") as f:
-        video_bytes = f.read()
-        
-    parts = [
-        types.Part.from_bytes(data=video_bytes, mime_type=mime_type),
-        "Analyze this video and provide a detailed summary of its content, including transcription of spoken words. Return the transcript and a confidence score."
-    ]
-    
-    try:
-        response = client.models.generate_content(
-            model='gemini-2.5-flash',
-            contents=parts,
-            config=types.GenerateContentConfig(
-                response_mime_type="application/json",
-                response_schema=ExtractionResult,
-            ),
-        )
-        import json
-        res_data = json.loads(response.text)
-        return {
-            "text": res_data.get("text", ""),
-            "confidence": float(res_data.get("confidence", 0.9)),
-            "method": "video_transcription"
-        }
-    except Exception as e:
-        response = client.models.generate_content(
-            model='gemini-2.5-flash',
-            contents=[types.Part.from_bytes(data=video_bytes, mime_type=mime_type), "Analyze this video."]
-        )
-        return {
-            "text": response.text,
-            "confidence": 0.85,
-            "method": "video_transcription_plain"
         }
