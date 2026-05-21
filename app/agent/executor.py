@@ -77,9 +77,12 @@ def execute_plan(session: SessionState) -> str:
             if not temp_path:
                 raise ValueError("Audio temporary file path is missing in session state.")
                 
+            ext = (session.file_type or "mp3").lower()
+            mime_map = {"mp3": "audio/mp3", "wav": "audio/wav", "m4a": "audio/m4a", "mp4": "video/mp4"}
+            mime_type = mime_map.get(ext, "audio/mp3")
             result_text = tasks.execute_audio_transcription_summary_task(
                 file_path=temp_path,
-                mime_type=session.file_type or "audio/mp3"
+                mime_type=mime_type
             )
             
         else:
