@@ -29,7 +29,7 @@ def estimate_cost(
 ) -> float:
     """
     Estimates token and API cost for the proposed plan.
-    Pricing for gemini-2.5-flash (approximate):
+    Pricing for gemini-1.5-flash (approximate):
     - Input text: $0.075 / 1M tokens ($0.000000075 per token)
     - Output text: $0.30 / 1M tokens ($0.00000030 per token)
     - Image: 258 tokens per image
@@ -99,7 +99,7 @@ def plan_task(
         )
         
         response = client.models.generate_content(
-            model='gemini-2.5-flash',
+            model='gemini-1.5-flash',
             contents=prompt,
             config=types.GenerateContentConfig(
                 response_mime_type="application/json",

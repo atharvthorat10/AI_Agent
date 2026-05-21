@@ -86,12 +86,12 @@ def execute_conversational_task(query: str, extracted_text: Optional[str] = None
         )
         
         response = client.models.generate_content(
-            model='gemini-2.5-flash',
+            model='gemini-1.5-flash',
             contents=prompt
         )
         return response.text
     except Exception as e:
-        return f"**[Demo Mode - API Error]** Hello! I received your query: '{query}'. The system had an API exception ({str(e)}), so we are responding in offline demo mode. Please verify your Gemini API key plan and billing status."
+        return f"**[Demo Mode - API Error]** Hello! I received your query: '{query}'. The system had an API exception (Quota Exceeded or Network Error), so we are responding in offline demo mode. Please verify your Gemini API key plan and billing status."
 
 def execute_summarization_task(text: str) -> str:
     """
@@ -108,14 +108,14 @@ def execute_summarization_task(text: str) -> str:
         )
         
         response = client.models.generate_content(
-            model='gemini-2.5-flash',
+            model='gemini-1.5-flash',
             contents=prompt
         )
         return response.text.strip()
     except Exception as e:
         return (
             "1-Line Summary:\n[Demo Mode] Simulated summary for the provided input text.\n\n"
-            "3 Bullet Points:\n- [Demo Mode] Key point 1: This is a placeholder bullet point.\n- [Demo Mode] Key point 2: Please configure/verify your GEMINI_API_KEY (API exception: " + str(e) + ").\n- [Demo Mode] Key point 3: All workflow logic is executing correctly.\n\n"
+            "3 Bullet Points:\n- [Demo Mode] Key point 1: This is a placeholder bullet point.\n- [Demo Mode] Key point 2: Please configure/verify your GEMINI_API_KEY (API exception: Quota Exceeded or Network Error).\n- [Demo Mode] Key point 3: All workflow logic is executing correctly.\n\n"
             "5-Sentence Summary:\nThis is a simulated five-sentence summary paragraph. It is generated because the Gemini API key has exceeded quota limits or is not configured. "
             "The system is running in offline demonstration mode. It extracts the structure and simulates the expected format. "
             "Please configure/check GEMINI_API_KEY in the .env file to enable live AI responses. "
@@ -132,7 +132,7 @@ def execute_sentiment_analysis_task(text: str) -> str:
         
         try:
             response = client.models.generate_content(
-                model='gemini-2.5-flash',
+                model='gemini-1.5-flash',
                 contents=prompt,
                 config=types.GenerateContentConfig(
                     response_mime_type="application/json",
@@ -160,7 +160,7 @@ def execute_sentiment_analysis_task(text: str) -> str:
                 f"Text:\n{text}"
             )
             response = client.models.generate_content(
-                model='gemini-2.5-flash',
+                model='gemini-1.5-flash',
                 contents=fallback_prompt
             )
             return response.text.strip()
@@ -168,7 +168,7 @@ def execute_sentiment_analysis_task(text: str) -> str:
         return (
             "Sentiment: Positive\n"
             "Confidence: 0.95\n"
-            "Justification: [Demo Mode] This is a simulated sentiment analysis justification because the GEMINI_API_KEY hit an exception: " + str(e)
+            "Justification: [Demo Mode] This is a simulated sentiment analysis justification because the GEMINI_API_KEY hit an exception: Quota Exceeded or Network Error"
         )
 
 def execute_code_explanation_task(code: str) -> str:
@@ -186,14 +186,14 @@ def execute_code_explanation_task(code: str) -> str:
         )
         
         response = client.models.generate_content(
-            model='gemini-2.5-flash',
+            model='gemini-1.5-flash',
             contents=prompt
         )
         return response.text.strip()
     except Exception as e:
         return (
             "### Code Explanation\n"
-            f"[Demo Mode] This is a simulated explanation of the provided code snippet. The orchestrator has routed the code successfully. (API exception occurred: {str(e)}).\n\n"
+            f"[Demo Mode] This is a simulated explanation of the provided code snippet. The orchestrator has routed the code successfully. (API exception occurred: Quota Exceeded or Network Error).\n\n"
             "### Detected Bugs & Vulnerabilities\n"
             "No bugs detected in demo mode.\n\n"
             "### Complexity Analysis\n"
@@ -230,7 +230,7 @@ def execute_audio_transcription_summary_task(file_path: str, mime_type: str) -> 
                 audio_bytes = f.read()
             prompt = "Transcribe this audio file and return JSON with text, confidence (0.0 to 1.0), and estimated duration_seconds."
             response = client.models.generate_content(
-                model='gemini-2.5-flash',
+                model='gemini-1.5-flash',
                 contents=[types.Part.from_bytes(data=audio_bytes, mime_type=mime_type), prompt],
                 config=types.GenerateContentConfig(
                     response_mime_type="application/json",

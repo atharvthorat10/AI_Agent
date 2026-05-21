@@ -100,7 +100,7 @@ def _ocr_pdf_fallback(file_path: str) -> Dict[str, Any]:
         
         try:
             response = client.models.generate_content(
-                model='gemini-2.5-flash',
+                model='gemini-1.5-flash',
                 contents=[*parts, prompt],
                 config=types.GenerateContentConfig(
                     response_mime_type="application/json",
@@ -117,7 +117,7 @@ def _ocr_pdf_fallback(file_path: str) -> Dict[str, Any]:
         except Exception:
             try:
                 response = client.models.generate_content(
-                    model='gemini-2.5-flash',
+                    model='gemini-1.5-flash',
                     contents=[*parts, "Perform OCR and extract all text from these images."]
                 )
                 return {
@@ -150,7 +150,7 @@ def _ocr_image(file_path: str, mime_type: str) -> Dict[str, Any]:
         
         try:
             response = client.models.generate_content(
-                model='gemini-2.5-flash',
+                model='gemini-1.5-flash',
                 contents=parts,
                 config=types.GenerateContentConfig(
                     response_mime_type="application/json",
@@ -167,7 +167,7 @@ def _ocr_image(file_path: str, mime_type: str) -> Dict[str, Any]:
         except Exception:
             try:
                 response = client.models.generate_content(
-                    model='gemini-2.5-flash',
+                    model='gemini-1.5-flash',
                     contents=[types.Part.from_bytes(data=img_bytes, mime_type=mime_type), "Extract all text from this image."]
                 )
                 return {
@@ -200,7 +200,7 @@ def _transcribe_audio(file_path: str, mime_type: str) -> Dict[str, Any]:
         
         try:
             response = client.models.generate_content(
-                model='gemini-2.5-flash',
+                model='gemini-1.5-flash',
                 contents=parts,
                 config=types.GenerateContentConfig(
                     response_mime_type="application/json",
@@ -217,7 +217,7 @@ def _transcribe_audio(file_path: str, mime_type: str) -> Dict[str, Any]:
         except Exception:
             try:
                 response = client.models.generate_content(
-                    model='gemini-2.5-flash',
+                    model='gemini-1.5-flash',
                     contents=[types.Part.from_bytes(data=audio_bytes, mime_type=mime_type), "Transcribe this audio file."]
                 )
                 return {
@@ -250,7 +250,7 @@ def _transcribe_video(file_path: str, mime_type: str) -> Dict[str, Any]:
         
         try:
             response = client.models.generate_content(
-                model='gemini-2.5-flash',
+                model='gemini-1.5-flash',
                 contents=parts,
                 config=types.GenerateContentConfig(
                     response_mime_type="application/json",
@@ -267,7 +267,7 @@ def _transcribe_video(file_path: str, mime_type: str) -> Dict[str, Any]:
         except Exception:
             try:
                 response = client.models.generate_content(
-                    model='gemini-2.5-flash',
+                    model='gemini-1.5-flash',
                     contents=[types.Part.from_bytes(data=video_bytes, mime_type=mime_type), "Analyze this video."]
                 )
                 return {
