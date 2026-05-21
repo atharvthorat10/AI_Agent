@@ -30,10 +30,13 @@ def extract_from_file(file_path: str, file_type: str) -> Dict[str, Any]:
         return _extract_pdf(file_path)
     elif ext in ["png", "jpg", "jpeg"]:
         return _ocr_image(file_path, f"image/{ext}")
-    elif ext in ["mp3", "wav", "m4a"]:
-        mime_map = {"mp3": "audio/mp3", "wav": "audio/wav", "m4a": "audio/m4a"}
+    elif ext in ["mp3", "wav", "m4a", "mp4"]:
+        mime_map = {"mp3": "audio/mp3", "wav": "audio/wav", "m4a": "audio/m4a", "mp4": "video/mp4"}
         mime = mime_map.get(ext, "audio/mp3")
-        return _transcribe_audio(file_path, mime)
+        if ext == "mp4":
+            return _transcribe_video(file_path, mime)
+        else:
+            return _transcribe_audio(file_path, mime)
     else:
         # Fallback for plain text or unknown
         try:
@@ -223,4 +226,51 @@ def _transcribe_audio(file_path: str, mime_type: str) -> Dict[str, Any]:
             "text": response.text,
             "confidence": 0.85,
             "method": "audio_transcription_plain"
+        }
+
+def _transcribe_video(file_path: str, mime_type: str) -> Dict[str, Any]:
+    """
+    Uses Gemini API to transcribe/analyze video files.
+    """
+    try:
+        client = get_client()
+    except ValueError:
+        return {
+            "text": "[Demo Mode] Simulated transcription of video file. Please configure GEMINI_API_KEY for live video analysis.",
+            "confidence": 0.9,
+            "method": "video_transcription_demo"
+        }
+    with open(file_path, "rb") as f:
+        video_bytes = f.read()
+        
+    parts = [
+        types.Part.from_bytes(data=video_bytes, mime_type=mime_type),
+        "Analyze this video and provide a detailed summary of its content, including transcription of spoken words. Return the transcript and a confidence score."
+    ]
+    
+    try:
+        response = client.models.generate_content(
+            model='gemini-2.5-flash',
+            contents=parts,
+            config=types.GenerateContentConfig(
+                response_mime_type="application/json",
+                response_schema=ExtractionResult,
+            ),
+        )
+        import json
+        res_data = json.loads(response.text)
+        return {
+            "text": res_data.get("text", ""),
+            "confidence": float(res_data.get("confidence", 0.9)),
+            "method": "video_transcription"
+        }
+    except Exception as e:
+        response = client.models.generate_content(
+            model='gemini-2.5-flash',
+            contents=[types.Part.from_bytes(data=video_bytes, mime_type=mime_type), "Analyze this video."]
+        )
+        return {
+            "text": response.text,
+            "confidence": 0.85,
+            "method": "video_transcription_plain"
         }
