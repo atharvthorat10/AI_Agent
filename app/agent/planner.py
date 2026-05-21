@@ -29,7 +29,7 @@ def estimate_cost(
 ) -> float:
     """
     Estimates token and API cost for the proposed plan.
-    Pricing for gemini-1.5-flash (approximate):
+    Pricing for gemini-2.0-flash (approximate):
     - Input text: $0.075 / 1M tokens ($0.000000075 per token)
     - Output text: $0.30 / 1M tokens ($0.00000030 per token)
     - Image: 258 tokens per image
@@ -99,7 +99,7 @@ def plan_task(
         )
         
         response = client.models.generate_content(
-            model='gemini-1.5-flash',
+            model='gemini-2.0-flash',
             contents=prompt,
             config=types.GenerateContentConfig(
                 response_mime_type="application/json",
@@ -115,6 +115,14 @@ def plan_task(
         plan_steps = decision.get("plan_steps", [])
         reasoning = decision.get("reasoning", "No reasoning provided.")
         
+        # File dependency validation
+        if task_type in ["image_pdf_ocr", "audio_transcribe_summary"] and not file_type:
+            is_ambiguous = True
+            follow_up = "You requested a file-specific task, but no file was uploaded. Please upload the file."
+            task_type = None
+            plan_steps = []
+            reasoning = "Missing required file upload for the requested task."
+
         # Calculate cost
         cost = estimate_cost(query, extracted_text, file_type, task_type, audio_duration)
         
@@ -202,6 +210,15 @@ def plan_task(
             reasoning_str = "Matched audio intent by keyword or file format."
             
         if matched_task:
+            if matched_task in ["image_pdf_ocr", "audio_transcribe_summary"] and not file_type:
+                return {
+                    "status": "ambiguous",
+                    "follow_up_question": "You requested a file-specific task, but no file was uploaded. Please upload the file.",
+                    "task_type": None,
+                    "plan": [],
+                    "reasoning": "Missing required file upload for the requested task.",
+                    "cost_estimate": 0.0
+                }
             return {
                 "status": "ready",
                 "follow_up_question": None,
