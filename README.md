@@ -1,4 +1,4 @@
-# Antigravity Multimodal Agent
+# AI Multimodal Agent
 
 An agentic application that accepts Text, Images, PDFs, or Audio files, extracts content, understands the user's intent, and autonomously performs the correct task. It separates planning from execution, estimates token and API costs, implements mandatory follow-up questions for ambiguous requests, and features a premium glassmorphic chat-like dashboard.
 
